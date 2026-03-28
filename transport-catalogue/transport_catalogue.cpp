@@ -47,22 +47,22 @@ void TransportCatalogue::UpdateStopBuses(const Route& route, const std::string_v
 void TransportCatalogue::AddStop(const std::string_view stop_id, geo::Coordinates location) {
     if (GetStopIndex(stop_id).has_value()) return;
     
-    std::string id(stop_id);
-    stops_.emplace_back(Stop(id, location)); 
+    std::string stop_id_str(stop_id);
+    stops_.emplace_back(Stop(stop_id_str, location)); 
     
     size_t index = stops_.size() - 1;
-    stops_index_map_.try_emplace(std::move(id), index);
+    stops_index_map_.try_emplace(std::move(stop_id_str), index);
 }
 
 // Доавляет маршрут в справочник
 void TransportCatalogue::AddBus(const std::string_view bus_id, const Route& route) {
     if (GetBusIndex(bus_id).has_value()) return;
     
-    std::string id(bus_id);
-    buses_.emplace_back(Bus(id, route));
+    std::string bus_id_str(bus_id);
+    buses_.emplace_back(Bus(bus_id_str, route));
     
     size_t bus_index = buses_.size() - 1;
-    buses_index_map_.try_emplace(std::move(id), bus_index);
+    buses_index_map_.try_emplace(std::move(bus_id_str), bus_index);
 
     UpdateStopBuses(route, buses_[bus_index].id);
 }
@@ -85,7 +85,7 @@ std::optional<size_t> TransportCatalogue::GetStopIndex(const std::string_view st
 std::optional<size_t> TransportCatalogue::GetBusIndex(const std::string_view bus_id) const {
     auto index = GetIndex(bus_id, buses_index_map_);
     if (!index.has_value() || *index >= buses_.size()) return std::nullopt;
-     return index;
+    return index;
 }
 
 // Возвращает информацию о маршруте
@@ -109,15 +109,15 @@ std::optional<StopInfo> TransportCatalogue::GetStopInfo(const std::string_view s
         return std::nullopt;
     }
     
-    auto it = stop_buses_index_map_.find(*stop_index_opt);
-    if (it == stop_buses_index_map_.end()) {
+    auto stop_it = stop_buses_index_map_.find(*stop_index_opt);
+    if (stop_it == stop_buses_index_map_.end()) {
         // если индекс отсуствует возвращаем пустой список
         return StopInfo { StopBuses {} };
     }
     
-    // dвозврат копии списка маршрутов остановки
+    // возврат копии списка маршрутов остановки
     return StopInfo { 
-        it->second
+        stop_it->second // тип StopBuses = std::set<std::string_view>
     };
 }
 
