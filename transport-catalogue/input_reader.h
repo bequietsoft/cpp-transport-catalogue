@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -26,7 +27,10 @@ struct CommandDescription {
 
 class InputReader {
 public:
-    // Парсит строку в структуру CommandDescription и сохраняет результат в commands_
+    // Читает данные из потока, парсит и применяет к справочнику
+    void ProcessCommands(TransportCatalogue& catalogue, std::istream& is);
+
+    // Парсит данных в структуру CommandDescription и сохраняет результат в commands_
     void ParseLine(std::string_view line);
 
     // Наполняет данными транспортный справочник, используя команды из commands_

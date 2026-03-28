@@ -112,6 +112,20 @@ CommandDescription ParseCommandDescription(std::string_view line) {
             std::string(line.substr(colon_pos + 1))};
 }
 
+// Читает данные из потока, парсит и применяет к справочнику
+void InputReader::ProcessCommands(TransportCatalogue& catalogue, std::istream& is) {
+    int commands_count;
+    is >> commands_count >> std::ws;
+
+    std::string line;
+    for (int i = 0; i < commands_count; ++i) {
+        getline(is, line);
+        ParseLine(line);
+    }
+
+    ApplyCommands(catalogue);
+}
+
 // Парсит строку в структуру CommandDescription и сохраняет результат в commands_
 void InputReader::ParseLine(std::string_view line) {
     auto command_description = ParseCommandDescription(line);
@@ -121,7 +135,7 @@ void InputReader::ParseLine(std::string_view line) {
 }
 
 // Выполняет запросы к справочнику в нужной последовательности
-void InputReader::ApplyCommands(transport_catalogue::TransportCatalogue& catalogue) const {
+void InputReader::ApplyCommands(TransportCatalogue& catalogue) const {
 
     // Сначала обработка всех команд создания остановок
     // в формате: "Stop X: latitude, longitude"
