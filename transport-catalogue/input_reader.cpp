@@ -54,39 +54,25 @@ std::vector<std::string_view> Split(std::string_view string, char delim) {
 // Парсит маршрут.
 // Для кольцевого маршрута (A>B>C>A) возвращает массив названий остановок [A,B,C,A]
 // Для некольцевого маршрута (A-B-C-D) возвращает массив названий остановок [A,B,C,D,C,B,A]
-// Переработан формат возврата в формат объекта transport_catalogue::Route (std::vector<std::string>),
-// объект передается по ссылке в AddBus, где применена move-семантика
-Route ParseRoute(std::string_view raw_route) {
+std::vector<std::string_view> ParseRoute(std::string_view raw_route) {
     
-    // Кольцевой маршрут (разделитель '>')
+    // Кольцевой маршрут (разделитель '>'):
     if (raw_route.find('>') != raw_route.npos) {
-        auto stops_views = Split(raw_route, '>');
-        Route stops;
-        stops.reserve(stops_views.size());
-
-        for (auto stop_view : stops_views) {
-            stops.emplace_back(stop_view);
-        }
-
-        return stops;
+        return Split(raw_route, '>');
     }
 
-    // Челночный маршрут (разделитель '-')
-    auto stops_views = Split(raw_route, '-');
-    Route stops;
-    stops.reserve(2 * stops_views.size() - 1);
+    // Челночный маршрут (разделитель '-'):
+    auto stops = Split(raw_route, '-');
+    std::vector<std::string_view> route;
+    route.reserve(2 * stops.size() - 1);
 
     // Прямой проход
-    for (auto stop_view : stops_views) {
-        stops.emplace_back(stop_view);
-    }
+    route.insert(route.end(), stops.begin(), stops.end());
 
     // Обратный проход (без последней остановки)
-    for (int i = static_cast<int>(stops_views.size()) - 2; i >= 0; --i) {
-        stops.emplace_back(stops_views[i]);
-    }
+    route.insert(route.end(), stops.rbegin() + 1, stops.rend());
 
-    return stops;
+    return route;
 }
 
 // Парсинг строки запроса в формат CommandDescription
@@ -151,8 +137,8 @@ void InputReader::ApplyCommands(TransportCatalogue& catalogue) const {
     // в формате: "Bus X: A > B > A" (кольцевой маршрут)
     for (const auto& cmd : commands_) {
         if (cmd.command == "Bus") {
-            Route route = ParseRoute(cmd.description);
-            catalogue.AddBus(cmd.id, route);
+            std::vector<std::string_view> stops = ParseRoute(cmd.description);
+            catalogue.AddBus(cmd.id, stops);
         }
     }
 }

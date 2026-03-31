@@ -29,14 +29,13 @@ void ParseAndPrintStat(const TransportCatalogue& catalogue,
     // в формате: "Bus X: R stops on route, U unique stops, L route length":
     if (cmd == "Bus") {
         output << "Bus " << id << ": ";
-        auto bus_info_opt = catalogue.GetBusInfo(id);
-        if (bus_info_opt.has_value()) {
-            transport_catalogue::BusInfo bus_info = *bus_info_opt;
+        transport_catalogue::Bus* bus_ptr = catalogue.GetBus(id);
+        if (bus_ptr) {
             output 
                 << std::setprecision(6)
-                << bus_info.stops_count << " stops on route, " 
-                << bus_info.unique_stops_count << " unique stops, " 
-                << bus_info.length << " route length" 
+                << bus_ptr->route.size() << " stops on route, " 
+                << catalogue.GetRouteUniqueStopsCount(bus_ptr->route) << " unique stops, " 
+                << catalogue.GetRouteLength(bus_ptr->route) << " route length"
                 << std::endl;
         } else {
             output 
@@ -44,18 +43,16 @@ void ParseAndPrintStat(const TransportCatalogue& catalogue,
         }
         return;
     }
-
+    
     // Запрос информации об остановке
     // в формате: "Stop X: buses bus1 bus2 ... busN"
     if (cmd == "Stop") {
         output << "Stop " << id << ": ";
-        auto stop_info_opt = catalogue.GetStopInfo(id);
-        if (stop_info_opt.has_value()) {
-            const transport_catalogue::StopInfo stop_info = *stop_info_opt;
-            const transport_catalogue::StopBuses stop_buses = stop_info.stop_buses;
-            if (stop_buses.size() > 0) {
+        transport_catalogue::Stop* stop_ptr = catalogue.GetStop(id);
+        if (stop_ptr) {
+            if (stop_ptr->buses.size() > 0) {
                 output << "buses";
-                for (auto& bus : stop_buses) {
+                for (auto bus : stop_ptr->buses) {
                     output << ' ' << bus;
                 }
                 output << std::endl;
