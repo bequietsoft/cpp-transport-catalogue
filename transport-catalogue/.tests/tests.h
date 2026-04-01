@@ -123,7 +123,7 @@ bool CompareStrings(const std::string& str1, const std::string& str2, const size
     return true;
 }
 
-void test_catalog() {
+void TestCatalog() {
     using namespace transport_catalogue;
     TransportCatalogue catalogue;
 
@@ -146,21 +146,26 @@ void test_catalog() {
     };
     catalogue.AddBus(std::string_view("bus1"), route);
 
-    Bus* bus_ptr = catalogue.GetBus(std::string_view("bus1"));
+    const Bus* bus_ptr = catalogue.GetBus(std::string_view("bus1"));
 
     assert(catalogue.GetBus(bus_ptr->id) != nullptr);
     assert(catalogue.GetBus(std::string_view("bus1")) != nullptr);
     assert(catalogue.GetBus("bus2") == nullptr);
 
-    assert(bus_ptr->route.size() == 5);
-    assert(catalogue.GetRouteUniqueStopsCount(bus_ptr->route) == 4);
-    double len = catalogue.GetRouteLength(bus_ptr->route);
-    assert(std::fabs(len - 2983664.13564) < 0.00001);
+    BusInfo info = catalogue.GetBusInfo(bus_ptr);
+    assert(info.total_stops == 5);
+    assert(info.unique_stops == 4);
+    assert(std::fabs(info.length_km - 2983664.13564) < 0.00001);
+
+    const Stop* stop = catalogue.GetStop(std::string_view("stop2"));
+    const  StopBuses* buses = catalogue.GetStopBuses(stop);
+    assert(buses->size() == 1);
+    assert(buses->contains("bus1"));
 
     std::cout << GREEN << "все тесты пройдены" << RESET << "\n";
 }
 
-bool test_file(const std::string& in_file_name, const std::string& out_file_name) {
+bool TestFile(const std::string& in_file_name, const std::string& out_file_name) {
     using namespace transport_catalogue;
 
     std::string str_in = ReadStringFromFile(in_file_name);
@@ -190,9 +195,9 @@ bool test_file(const std::string& in_file_name, const std::string& out_file_name
     return CompareStrings(str_out, str_out_etalon, 10);
 }
 
-void test_files() {
-    bool a = test_file(".tests/tsB_case0_input.txt", ".tests/tsB_case0_output.txt");
-    bool b = test_file(".tests/tsB_case1_input.txt", ".tests/tsB_case1_output.txt");
-    bool c = test_file(".tests/tsB_case2_input.txt", ".tests/tsB_case2_output.txt");
+void TestFiles() {
+    bool a = TestFile(".tests/tsB_case0_input.txt", ".tests/tsB_case0_output.txt");
+    bool b = TestFile(".tests/tsB_case1_input.txt", ".tests/tsB_case1_output.txt");
+    bool c = TestFile(".tests/tsB_case2_input.txt", ".tests/tsB_case2_output.txt");
     assert(a && b && c);
 }

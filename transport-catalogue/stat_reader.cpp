@@ -20,6 +20,10 @@ void ProcessRequests(const TransportCatalogue& catalogue,
 void ParseAndPrintStat(const TransportCatalogue& catalogue, 
     std::string_view request, std::ostream& output) {
     
+    using Bus = transport_catalogue::Bus;
+    using Stop = transport_catalogue::Stop;
+    using StopBuses = transport_catalogue::StopBuses;
+
     // Парсинг запроса формата: "Cmd X":
     auto space_pos = request.find_first_of(' ');
     std::string_view cmd = request.substr(0, space_pos);
@@ -29,18 +33,21 @@ void ParseAndPrintStat(const TransportCatalogue& catalogue,
     // в формате: "Bus X: R stops on route, U unique stops, L route length":
     if (cmd == "Bus") {
         output << "Bus " << id << ": ";
-        transport_catalogue::Bus* bus_ptr = catalogue.GetBus(id);
-        if (bus_ptr) {
-            output 
-                << std::setprecision(6)
-                << bus_ptr->route.size() << " stops on route, " 
-                << catalogue.GetRouteUniqueStopsCount(bus_ptr->route) << " unique stops, " 
-                << catalogue.GetRouteLength(bus_ptr->route) << " route length"
-                << std::endl;
-        } else {
-            output 
-                << "not found" << std::endl;
+
+        const Bus* bus_ptr = catalogue.GetBus(id);
+        if (!bus_ptr) {
+            output << "not found" << std::endl;
+            return;
         }
+
+        const BusInfo info = catalogue.GetBusInfo(bus_ptr);
+        output 
+            << std::setprecision(6)
+            << info.total_stops << " stops on route, " 
+            << info.unique_stops << " unique stops, " 
+            << info.length_km << " route length"
+            << std::endl;
+
         return;
     }
     
@@ -48,20 +55,24 @@ void ParseAndPrintStat(const TransportCatalogue& catalogue,
     // в формате: "Stop X: buses bus1 bus2 ... busN"
     if (cmd == "Stop") {
         output << "Stop " << id << ": ";
-        transport_catalogue::Stop* stop_ptr = catalogue.GetStop(id);
-        if (stop_ptr) {
-            if (stop_ptr->buses.size() > 0) {
-                output << "buses";
-                for (auto bus : stop_ptr->buses) {
-                    output << ' ' << bus;
-                }
-                output << std::endl;
-            } else {
-                output << "no buses" << std::endl;
-            }
-        } else {
+
+        const Stop* stop_ptr = catalogue.GetStop(id);
+        if (!stop_ptr) {
             output << "not found" << std::endl;
+            return;
         }
+
+        const StopBuses* stop_buses_ptr = catalogue.GetStopBuses(stop_ptr);
+        if (stop_buses_ptr->size() > 0) {
+            output << "buses";
+            for (auto bus : *stop_buses_ptr) {
+                output << ' ' << bus;
+            }
+            output << std::endl;
+        } else {
+            output << "no buses" << std::endl;
+        }
+
         return;
     }
 }
