@@ -1,7 +1,7 @@
 #include "stat_reader.h"
 
 namespace transport_catalogue::stat {
-
+// #include <iostream>
 // Читает данные из потока, парсит и выводит в поток результаты запросов
 void ProcessRequests(const TransportCatalogue& catalogue,
     std::istream& input, std::ostream& output) {
@@ -11,7 +11,7 @@ void ProcessRequests(const TransportCatalogue& catalogue,
 
     std::string line;
     for (int i = 0; i < stat_request_count; ++i) {
-        getline(input, line);
+        std::getline(input, line);
         ParseAndPrintStat(catalogue, line, output);
     }
 }
@@ -20,10 +20,6 @@ void ProcessRequests(const TransportCatalogue& catalogue,
 void ParseAndPrintStat(const TransportCatalogue& catalogue, 
     std::string_view request, std::ostream& output) {
     
-    using Bus = transport_catalogue::Bus;
-    using Stop = transport_catalogue::Stop;
-    using StopBuses = transport_catalogue::StopBuses;
-
     // Парсинг запроса формата: "Cmd X":
     auto space_pos = request.find_first_of(' ');
     std::string_view cmd = request.substr(0, space_pos);
@@ -45,9 +41,9 @@ void ParseAndPrintStat(const TransportCatalogue& catalogue,
             << std::setprecision(6)
             << info.total_stops << " stops on route, " 
             << info.unique_stops << " unique stops, " 
-            << info.length_km << " route length"
+            << info.length_km << " route length, "
+            << info.curvature << " curvature"
             << std::endl;
-
         return;
     }
     

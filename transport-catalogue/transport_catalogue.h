@@ -1,5 +1,7 @@
 #pragma once
 
+#include "geo.h"
+
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -7,8 +9,6 @@
 #include <set>
 #include <deque>
 #include <cassert>
-
-#include "geo.h"
 
 namespace transport_catalogue {
 
@@ -36,24 +36,27 @@ struct BusInfo {
     size_t total_stops;
     size_t unique_stops;
     double length_km;
+    double curvature;
 };
 
 class TransportCatalogue {
 public:
     // Методы построения:
     void AddBus(const std::string_view id, const std::vector<std::string_view>& stops);
-    void AddStop(const std::string_view id, geo::Coordinates location);
+    void AddStop(const std::string_view id, geo::Coordinates location = {});
+    void AddDistance(const std::string_view from, const std::string_view to, size_t distance);
 
     // Методы доступа:
     const Bus* GetBus(const std::string_view id) const;
     const Stop* GetStop(const std::string_view id) const;
+    size_t GetDistance(const Stop* from_stop_ptr, const Stop* to_stop_ptr) const;
     
     // Методы запросов:
     const StopBuses* GetStopBuses(const Stop* stop_ptr) const;
     const BusInfo GetBusInfo(const Bus* bus_ptr) const;
 
-    size_t GetUniqueStopsCount(const Bus* bus_ptr) const;
-    double GetLength(const Bus* bus_ptr) const;
+    size_t GetRouteUniqueStopsCount(const Bus* bus_ptr) const;
+    double GetRouteLength(const Bus* bus_ptr, bool use_geo_distance = false) const;
 
 private:
     // Массивы
@@ -65,6 +68,9 @@ private:
     std::unordered_map<std::string_view, Stop*> stops_map_;
 
     std::unordered_map<std::string_view, StopBuses> stop_buses_map_;
+
+    std::unordered_map<std::string_view,
+        std::unordered_map<std::string_view, size_t>> distances_map_;
 };
 
 } // end of namespace transport_catalogue

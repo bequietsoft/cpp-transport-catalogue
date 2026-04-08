@@ -1,10 +1,9 @@
-#include <iostream>
-
 #include "transport_catalogue.h"
 #include "input_reader.h"
 #include "stat_reader.h"
-
 #include ".tests/tests.h"
+
+#include <iostream>
 
 int main() {
     TestCatalog(); TestFiles(); return 0;

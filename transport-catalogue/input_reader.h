@@ -1,12 +1,11 @@
 #pragma once
 
-#include <iostream>
-#include <string>
-#include <string_view>
-#include <vector>
-
 #include "geo.h"
 #include "transport_catalogue.h"
+
+#include <istream>
+#include <string_view>
+#include <vector>
 
 namespace transport_catalogue::input {
 

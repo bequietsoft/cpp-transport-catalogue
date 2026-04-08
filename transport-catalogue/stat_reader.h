@@ -1,13 +1,17 @@
 #pragma once
 
+#include "transport_catalogue.h"
+
 #include <iosfwd>
 #include <iomanip>
 #include <string_view>
 #include <string>
 
-#include "transport_catalogue.h"
-
 namespace transport_catalogue::stat {
+
+using Bus = transport_catalogue::Bus;
+using Stop = transport_catalogue::Stop;
+using StopBuses = transport_catalogue::StopBuses;
 
 // Читает данные из потока, парсит и выводит в поток результаты запросов
 void ProcessRequests(const TransportCatalogue& catalogue,

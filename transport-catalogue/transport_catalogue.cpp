@@ -13,7 +13,7 @@ void TransportCatalogue::AddBus(const std::string_view id, const std::vector<std
     Route route;
     route.reserve(stops.size());
     for (auto stop_id_view: stops) {
-        assert(GetStop(stop_id_view) != nullptr);
+        if (!GetStop(stop_id_view)) AddStop(stop_id_view);
         route.push_back(stops_map_.at(stop_id_view));
     }
 
@@ -36,8 +36,6 @@ void TransportCatalogue::AddBus(const std::string_view id, const std::vector<std
 
 // Добавляет остановку
 void TransportCatalogue::AddStop(const std::string_view id, geo::Coordinates location) {
-    assert(GetStop(id) == nullptr);
-
     // создание объекта в хранилище (string и geo::Coordinates),
     // move-семантика в инициализаторе объекта Stop
     stops_.emplace_back(std::string(id), location); 
@@ -49,6 +47,11 @@ void TransportCatalogue::AddStop(const std::string_view id, geo::Coordinates loc
 
     // инициализация списка автобусов остановки
     stop_buses_map_[stop_id_view] = {};
+}
+
+// Добавляет растояние между парой остановок
+void TransportCatalogue::AddDistance(const std::string_view from, const std::string_view to, size_t distance) {
+    distances_map_[GetStop(from)->id][GetStop(to)->id] = distance;
 }
 
 // Методы доступа:
@@ -65,6 +68,33 @@ const Stop* TransportCatalogue::GetStop(const std::string_view id) const {
     return it == stops_map_.end() ? nullptr : it->second;
 }
 
+// Возвращает растояние между остановками
+size_t TransportCatalogue::GetDistance(const Stop* from_stop_ptr, const Stop* to_stop_ptr) const {
+    const auto& from_stop_id = from_stop_ptr->id;
+    const auto& to_stop_id = to_stop_ptr->id;
+    
+    // Поиск предварительно заданного расстояния (прямой):
+    auto it_from = distances_map_.find(from_stop_id);
+    if (it_from != distances_map_.end()) {
+        auto it_to = it_from->second.find(to_stop_id);
+        if (it_to != it_from->second.end()) {
+            return it_to->second;        
+        }
+    }
+
+    // Поиск предварительно заданного расстояния (обратный):
+    auto it_to = distances_map_.find(to_stop_id);
+    if (it_to != distances_map_.end()) {
+        auto it_from = it_to->second.find(from_stop_id);
+        if (it_from != it_to->second.end()) {
+            return it_from->second;        
+        }
+    }
+
+    // Заданного растояния нет, возврат расстояния между геопозициями остановок:
+    return geo::ComputeDistance(from_stop_ptr->location, to_stop_ptr->location);
+}
+
 // Методы запросов:
 
 // Возвращает указатель на список маршрутов остановки
@@ -77,15 +107,23 @@ const StopBuses* TransportCatalogue::GetStopBuses(const Stop* stop_ptr) const {
 // Возвращает информацию о маршруте
 const BusInfo TransportCatalogue::GetBusInfo(const Bus* bus_ptr) const {
     assert(bus_ptr != nullptr);
+    
+    double fact_distance = GetRouteLength(bus_ptr, false);
+    double geo_distance  = GetRouteLength(bus_ptr, true);
+
+    assert(geo_distance != 0.0);
+    double curvature = fact_distance / geo_distance;
+    
     return {
         bus_ptr->route.size(),
-        GetUniqueStopsCount(bus_ptr),
-        GetLength(bus_ptr)
+        GetRouteUniqueStopsCount(bus_ptr),
+        fact_distance,
+        curvature
     };
 }
 
 // Возвращает уникальные остановки маршрута
-size_t TransportCatalogue::GetUniqueStopsCount(const Bus* bus_ptr) const {
+size_t TransportCatalogue::GetRouteUniqueStopsCount(const Bus* bus_ptr) const {
     assert(bus_ptr != nullptr);
     std::unordered_set<std::string_view> temp_unique_stops; 
     for (auto stop: bus_ptr->route) { 
@@ -94,18 +132,23 @@ size_t TransportCatalogue::GetUniqueStopsCount(const Bus* bus_ptr) const {
     return temp_unique_stops.size(); 
 }
 
-// Вычисляет длину маршрута
-double TransportCatalogue::GetLength(const Bus* bus_ptr) const {
+// Вовраает длину маршрута
+// use_geo_distance - вычисление по гео-точкам (по умолчанию false)
+double TransportCatalogue::GetRouteLength(const Bus* bus_ptr, bool use_geo_distance) const {
     assert(bus_ptr != nullptr);
     if (bus_ptr->route.size() < 2) return 0.;
-    double length = 0.;
+    
+    double distance = 0.;
     for (size_t i = 1; i < bus_ptr->route.size(); ++i) {
-        length += geo::ComputeDistance(
-            bus_ptr->route[i    ]->location, 
-            bus_ptr->route[i - 1]->location
-        );
+        const Stop* from = bus_ptr->route[i - 1];
+        const Stop* to = bus_ptr->route[i];
+        distance += 
+            use_geo_distance ? 
+                geo::ComputeDistance(from->location, to->location) :
+                GetDistance(from, to);
     }
-    return length;
+    
+    return distance;
 }
 
 } // end of namespace transport_catalogue
