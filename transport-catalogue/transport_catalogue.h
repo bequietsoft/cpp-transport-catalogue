@@ -44,12 +44,12 @@ public:
     // Методы построения:
     void AddBus(const std::string_view id, const std::vector<std::string_view>& stops);
     void AddStop(const std::string_view id, geo::Coordinates location = {});
-    void AddDistance(const std::string_view from, const std::string_view to, size_t distance);
+    void AddDistance(const std::string_view from, const std::string_view to, double distance);
 
     // Методы доступа:
     const Bus* GetBus(const std::string_view id) const;
     const Stop* GetStop(const std::string_view id) const;
-    size_t GetDistance(const Stop* from_stop_ptr, const Stop* to_stop_ptr) const;
+    double GetDistance(const Stop* from_stop_ptr, const Stop* to_stop_ptr) const;
     
     // Методы запросов:
     const StopBuses* GetStopBuses(const Stop* stop_ptr) const;
@@ -70,7 +70,7 @@ private:
     std::unordered_map<std::string_view, StopBuses> stop_buses_map_;
 
     std::unordered_map<std::string_view,
-        std::unordered_map<std::string_view, size_t>> distances_map_;
+        std::unordered_map<std::string_view, double>> distances_map_;
 };
 
 } // end of namespace transport_catalogue

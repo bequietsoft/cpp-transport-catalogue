@@ -45,20 +45,19 @@ geo::Coordinates ParseCoordinates(std::string_view str) {
 }
 
 // Парсит расстояния от остановки до соседних остановок
-// Возвращает массив пар остановка - расстояние
-using Distances = std::vector<std::pair<std::string_view, size_t>>;
-Distances ParseDistances(std::string_view str) {
+// Возвращает массив расстояний до остановок
+std::vector<Distance> ParseDistances(std::string_view str) {
     auto comma_split = Split(str, ",");
     if (comma_split.size() < 3) return {};
 
-    Distances result;
+    std::vector<Distance> result;
     result.reserve(comma_split.size() - 2);
     for (size_t i = 2; i < comma_split.size(); ++i) {
         auto to_split = Split(comma_split[i], "m to ");
         assert(to_split.size() == 2);
-        int distance = std::stoi(std::string(to_split[0]));
-        assert(distance > 0 && distance <= 1000000);
-        result.emplace_back(std::make_pair(to_split[1], distance));
+        double distance = std::stod(std::string(to_split[0]));
+        assert(distance > 0.0 && distance <= 1000000.0);
+        result.push_back(Distance{ to_split[1], distance });
     }
     return result;
 }
@@ -141,9 +140,9 @@ void InputReader::ApplyCommands(TransportCatalogue& catalogue) const {
     // Обработка команд привязки расстояний
     for (const auto& cmd : commands_) {
         if (cmd.command == "Stop") {
-            Distances distances = ParseDistances(cmd.description);
+            std::vector<Distance> distances = ParseDistances(cmd.description);
             for (auto dist: distances) {            
-                catalogue.AddDistance(cmd.id, dist.first, dist.second);
+                catalogue.AddDistance(cmd.id, dist.to_stop, dist.length_m);
             }
         }
     }

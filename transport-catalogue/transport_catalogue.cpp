@@ -50,8 +50,11 @@ void TransportCatalogue::AddStop(const std::string_view id, geo::Coordinates loc
 }
 
 // Добавляет растояние между парой остановок
-void TransportCatalogue::AddDistance(const std::string_view from, const std::string_view to, size_t distance) {
-    distances_map_[GetStop(from)->id][GetStop(to)->id] = distance;
+void TransportCatalogue::AddDistance(const std::string_view from, const std::string_view to, double distance) {
+    const Stop* from_stop_ptr = GetStop(from);
+    const Stop* to_stop_ptr = GetStop(to);
+    assert(from_stop_ptr && to_stop_ptr);
+    distances_map_[from_stop_ptr->id][to_stop_ptr->id] = distance;
 }
 
 // Методы доступа:
@@ -69,7 +72,7 @@ const Stop* TransportCatalogue::GetStop(const std::string_view id) const {
 }
 
 // Возвращает растояние между остановками
-size_t TransportCatalogue::GetDistance(const Stop* from_stop_ptr, const Stop* to_stop_ptr) const {
+double TransportCatalogue::GetDistance(const Stop* from_stop_ptr, const Stop* to_stop_ptr) const {
     const auto& from_stop_id = from_stop_ptr->id;
     const auto& to_stop_id = to_stop_ptr->id;
     

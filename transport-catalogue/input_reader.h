@@ -24,6 +24,11 @@ struct CommandDescription {
     std::string description;  // Параметры команды
 };
 
+struct Distance {
+    std::string_view to_stop; // Остановка, до которой задано рассотяние
+    double length_m;          // Рассотяние в метрах
+};
+
 class InputReader {
 public:
     // Читает данные из потока, парсит и применяет к справочнику
@@ -37,6 +42,7 @@ public:
 
 private:
     std::vector<CommandDescription> commands_;
+    std::vector<Distance> distances_;
 };
 
 } // end of namespace transport_catalogue::input
