@@ -53,8 +53,9 @@ void TransportCatalogue::AddStop(const std::string_view id, geo::Coordinates loc
 void TransportCatalogue::AddDistance(const std::string_view from, const std::string_view to, double distance) {
     const Stop* from_stop_ptr = GetStop(from);
     const Stop* to_stop_ptr = GetStop(to);
-    assert(from_stop_ptr && to_stop_ptr);
-    distances_map_[from_stop_ptr->id][to_stop_ptr->id] = distance;
+    if (from_stop_ptr && to_stop_ptr) {
+        distances_map_[from_stop_ptr->id][to_stop_ptr->id] = distance;
+    }
 }
 
 // Методы доступа:
