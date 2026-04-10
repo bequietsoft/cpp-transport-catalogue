@@ -36,6 +36,8 @@ void TransportCatalogue::AddBus(const std::string_view id, const std::vector<std
 
 // Добавляет остановку
 void TransportCatalogue::AddStop(const std::string_view id, geo::Coordinates location) {
+    assert(GetStop(id) == nullptr);
+    
     // создание объекта в хранилище (string и geo::Coordinates),
     // move-семантика в инициализаторе объекта Stop
     stops_.emplace_back(std::string(id), location); 

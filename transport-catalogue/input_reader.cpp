@@ -11,20 +11,20 @@ std::string_view Trim(std::string_view str) {
 
 // Разбивает строку string на n строк, с помощью строки-разделителя spl
 std::vector<std::string_view> Split(std::string_view str, std::string_view spl) {
-    assert(str.length() > 0);
-    assert(spl.length() > 0);
+    assert(!str.empty());
+    assert(!spl.empty());
 
     std::vector<std::string_view> result;
     size_t pos = 0;
-    while (pos < str.length()) {
+    while (pos < str.size()) {
         auto spl_pos = str.find(spl, pos);
         if (spl_pos == str.npos) {
-            spl_pos = str.length();
+            spl_pos = str.size();
         }
         if (auto substr = Trim(str.substr(pos, spl_pos - pos)); !substr.empty()) {
             result.push_back(substr);
         }
-        pos = spl_pos + spl.length();
+        pos = spl_pos + spl.size();
     }
     return result;
 }
