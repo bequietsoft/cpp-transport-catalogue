@@ -1,8 +1,13 @@
 #pragma once
 
 #include "../transport_catalogue.h"
-#include "../input_reader.h"
-#include "../stat_reader.h"
+
+#include "../json.h"
+#include "../svg.h"
+
+#include "../json_reader.h"
+#include "../request_handler.h"
+#include "../map_renderer.h"
 
 #include <iostream>
 #include <fstream>
@@ -10,6 +15,8 @@
 #include <algorithm>
 #include <cmath>
 #include <chrono>
+
+#include <windows.h>
 
 #define PROFILE_CONCAT_INTERNAL(X, Y) X##Y
 #define PROFILE_CONCAT(X, Y) PROFILE_CONCAT_INTERNAL(X, Y)
@@ -23,16 +30,14 @@ const std::string YELLOW = "\033[33m";
 const std::string GRAY = "\033[90m";
 const std::string WHITE = "\033[97m";
 const std::string RESET = "\033[0m";
-const size_t MAX_OUTPUT_LENGTH = 300;
+const size_t MAX_OUTPUT_LENGTH = 100;//10000;
 
 class LogDuration {
 public:
     using Clock = std::chrono::steady_clock;
 
     LogDuration(const std::string& id, std::ostream& dst_stream = std::cerr)
-        : id_(id)
-        , dst_stream_(dst_stream) {
-    }
+        : id_(id), dst_stream_(dst_stream) {}
 
     ~LogDuration() {
         using namespace std::chrono;
@@ -42,8 +47,9 @@ public:
         double duration_ms = duration_cast<microseconds>(dur).count() / 1000.0;
         dst_stream_
             << WHITE
-            << id_ << ": "
-            << std::fixed << std::setprecision(2) << duration_ms << " ms"
+            << "\n" << id_ << ": "
+            << std::fixed << std::setprecision(2) 
+            << duration_ms << " ms"
             << RESET << '\n';
     }
 
@@ -56,7 +62,7 @@ private:
 std::string ReadStringFromFile(const std::string& file_name) {
     std::ifstream fin(file_name);
     if (!fin.is_open()) {
-        throw std::runtime_error("Cannot open file: " + file_name);
+        throw std::runtime_error("Cannot open file: " + file_name + " for read");
     }
 
     std::string result;
@@ -66,6 +72,16 @@ std::string ReadStringFromFile(const std::string& file_name) {
 
     result.assign(std::istreambuf_iterator<char>(fin), std::istreambuf_iterator<char>());
     return result;
+}
+
+void WriteStringToFile(const std::string& file_name, const std::string& data) {
+    std::ofstream fout(file_name);
+    if (!fout.is_open()) {
+        throw std::runtime_error("Cannot open file: " + file_name + " for write");
+    }
+
+    fout.write(data.c_str(), static_cast<std::streamsize>(data.size()));
+    fout.close();
 }
 
 std::string PrintChar(char ch) {
@@ -94,6 +110,7 @@ bool CompareStrings(const std::string& str1, const std::string& str2, const size
     std::cout << GRAY << "Результат (" << len1 << " байт)" << RESET;
     if (len1 < MAX_OUTPUT_LENGTH) std::cout << ":\n" << str1;
     std::cout << "\n";
+    
     std::cout << GRAY << "Эталон (" << len2 << " байт)" << RESET;
     if (len2 < MAX_OUTPUT_LENGTH) std::cout << ":\n" << str2;
     std::cout << "\n";
@@ -151,11 +168,14 @@ bool CompareStrings(const std::string& str1, const std::string& str2, const size
         if (str2[i] == '\n') ++cur_line2;
     } 
     
+    
+
     if (d_count == 0) std::cout << GREEN << "идентичны\n";
     std::cout << RESET << "\n" ;
     return true;
 }
 
+/*
 void TestCatalog() {
     using namespace transport_catalogue;
     
@@ -182,14 +202,14 @@ void TestCatalog() {
         };
         catalogue.AddBus(std::string_view("bus1"), route);
 
-        const Bus* bus_ptr = catalogue.GetBus(std::string_view("bus1"));
+        const BusPtr bus_ptr = catalogue.GetBus(std::string_view("bus1"));
 
         assert(catalogue.GetBus(bus_ptr->id) != nullptr);
         assert(catalogue.GetBus(std::string_view("bus1")) != nullptr);
         assert(catalogue.GetBus("bus2") == nullptr);
 
-        const Stop* stop = catalogue.GetStop(std::string_view("stop2"));
-        const StopBuses* buses = catalogue.GetStopBuses(stop);
+        const StopPtr stop = catalogue.GetStop(std::string_view("stop2"));
+        const StopBuses* buses = catalogue.GetBusesByStop(stop);
         assert(buses != nullptr);
         assert(buses->size() == 1);
         assert(buses->contains("bus1"));
@@ -341,42 +361,135 @@ void TestCatalog() {
 
     std::cout << GREEN << "все тесты функционала пройдены" << RESET << "\n";
 }
+*/
 
-bool TestFile(const std::string& in_file_name, const std::string& out_file_name) {
+bool TestJsonFile(
+    const std::string& input_file_name, 
+    const std::string& etalon_file_name, 
+    const std::string& out_file_name = "") {
+        
     using namespace transport_catalogue;
 
-    std::string str_in = ReadStringFromFile(in_file_name);
+    std::string str_in = ReadStringFromFile(input_file_name);
     std::string str_out;
 
     {
-        LogDuration logduration("TransportCatalogue (" + in_file_name + ")");
-        TransportCatalogue catalogue;
+        LogDuration logduration("TransportCatalogue (" + input_file_name + ")");
+        transport_catalogue::TransportCatalogue catalogue;
         
-        std::stringstream sin(str_in);
-        std::stringstream sout;
+        std::stringstream ssin(str_in);
+        std::stringstream ssout;
 
         {
-            LogDuration logduration("TransportCatalogue::input");
-            input::InputReader reader;
-            reader.ProcessCommands(catalogue, sin);
+            // Загрузка запросов
+            json::Document request_data {json::Load(ssin)};
+            
+            // Создание загрузчика
+            input::JsonReader reader;
+            reader.ProcessBaseRequests(request_data);
+        
+            // Создание отрисовщика
+            render::MapRenderer renderer;
+            renderer.SetRenderSettings(request_data);
+
+            // Создание ручки
+            output::RequestHandler db_handler(
+                reader.GetBase(), 
+                renderer
+            );
+
+            // Обработать запросы к базе
+            LogDuration logduration("ProcessStatRequests");
+            json::Document response_data { db_handler.ProcessStatRequests(request_data) };
+            // Вывод ответов
+            json::Print(response_data, ssout);
         }
 
-        {
-            LogDuration logduration("TransportCatalogue::stat");
-            stat::ProcessRequests(catalogue, sin, sout);
-            str_out = sout.str();
-        }
+        str_out = ssout.str();
+        //std::cout << "{{\n" << str_out << "}}\n";
+
+        if (out_file_name != "") 
+            WriteStringToFile(out_file_name, str_out);
     }
 
-    std::string str_out_etalon = ReadStringFromFile(out_file_name);
-    return CompareStrings(str_out, str_out_etalon, 10);
+    std::string str_etalon = ReadStringFromFile(etalon_file_name);
+    return CompareStrings(str_out, str_etalon, 20);
 }
 
-void TestFiles() {
-    bool a = TestFile(".tests/tsC_case0_input.txt", ".tests/tsC_case0_output.txt");
-    bool b = TestFile(".tests/tsC_case1_input.txt", ".tests/tsC_case1_output1.txt");
+bool TestSvgFile(
+    const std::string& input_file_name, 
+    const std::string& etalon_file_name, 
+    const std::string& out_file_name = "") {
+        
+    using namespace transport_catalogue;
 
-    if (a && b) 
+    std::string str_in = ReadStringFromFile(input_file_name);
+    std::string str_out;
+
+    {
+        LogDuration logduration("TransportCatalogue (" + input_file_name + ")");
+        transport_catalogue::TransportCatalogue catalogue;
+        
+        std::stringstream ssin(str_in);
+        std::stringstream ssout;
+
+        {
+            // Загрузка запросов
+            json::Document request_data {json::Load(ssin)};
+            
+            // Создание загрузчика
+            input::JsonReader reader;
+            reader.ProcessBaseRequests(request_data);
+        
+            // Создание отрисовщика
+            render::MapRenderer renderer;
+            renderer.SetRenderSettings(request_data);
+
+            // Создание ручки
+            output::RequestHandler db_handler(
+                reader.GetBase(), 
+                renderer
+            );
+
+            // Рендер карты маршрутов
+            LogDuration logduration("RenderMap");
+            svg::Document map = db_handler.RenderMap();
+            map.Render(ssout);
+        }
+
+        str_out = ssout.str();
+        //std::cout << "{{\n" << str_out << "}}\n";
+
+        if (out_file_name != "") 
+            WriteStringToFile(out_file_name, str_out);
+    }
+
+    std::string str_etalon = ReadStringFromFile(etalon_file_name);
+    return CompareStrings(str_out, str_etalon, 20);
+}
+
+
+void RunTests() {
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+
+    LogDuration logduration("Total testing time");
+
+    //bool JSON_f = TestJsonFile(".tests/in_2.json", ".tests/out_2.json", ".tests/out_2_USER.json");
+    //bool SVG_f0 = TestSvgFile(".tests/input_15_01.json", ".tests/output_15_01_render_settings.json", ".tests/output_15_01_render_settings_USER.json");
+    //bool SVG_f1 = TestSvgFile(".tests/input_15_01.json", ".tests/output_15_01.svg", ".tests/output_15_01_USER.svg");
+    //bool SVG_f2 = TestSvgFile(".tests/case_input_4.txt", ".tests/author_output_4.txt", ".tests/author_output_4_USER.txt");
+    //bool SVG_1 = TestSvgFile(".tests/input.json", ".tests/output_1.svg", ".tests/output_1_USER.svg");
+    //bool SVG_2 = TestSvgFile(".tests/input.json", ".tests/output_2.svg", ".tests/output_2_USER.svg");
+    //bool SVG_3 = TestSvgFile(".tests/input.json", ".tests/output_3.svg", ".tests/output_3_USER.svg");
+    //bool SVG_4 = TestSvgFile(".tests/input_4.json", ".tests/output_3.svg", ".tests/output_3_USER.svg");
+
+    //bool JSON_5 = TestJsonFile(".tests/input.json", ".tests/output.json");
+    bool FIN_1 = TestJsonFile(".tests/s10_final_opentest_1.json", ".tests/s10_final_opentest_1_answer.json", ".tests/s10_final_opentest_1_user.json");
+    bool FIN_2 = TestJsonFile(".tests/s10_final_opentest_2.json", ".tests/s10_final_opentest_2_answer.json", ".tests/s10_final_opentest_2_user.json");
+    bool FIN_3 = TestJsonFile(".tests/s10_final_opentest_3.json", ".tests/s10_final_opentest_3_answer.json", ".tests/s10_final_opentest_3_user.json");
+
+    if (FIN_1 && FIN_2 && FIN_3)  
         std::cout << GREEN << "тесты данных пройдены" << RESET << "\n";
     else
         std::cout << RED << "тесты данных не пройдены" << RESET << "\n";

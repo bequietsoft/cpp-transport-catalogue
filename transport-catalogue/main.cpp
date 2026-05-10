@@ -1,21 +1,37 @@
-#include "transport_catalogue.h"
-#include "input_reader.h"
-#include "stat_reader.h"
-#include ".tests/tests.h"
-
-#include <iostream>
+#include "request_handler.h"
+#include "json_reader.h"
+#include "map_renderer.h"
 
 int main() {
-    TestCatalog(); TestFiles(); return 0;
 
-    using namespace transport_catalogue;
-    TransportCatalogue catalogue;
+    using namespace transport_catalogue::input;
+    using namespace transport_catalogue::output;
+
+    try {
+        // Загрузка запросов
+        json::Document request_data {json::Load(std::cin)};
+
+        // Создание загрузчика
+        input::JsonReader reader;
+        reader.ProcessBaseRequests(request_data);
     
-    {
-        input::InputReader reader;
-        reader.ProcessCommands(catalogue, std::cin);
-    }
-    stat::ProcessRequests(catalogue, std::cin, std::cout);
+        // Создание отрисовщика
+        render::MapRenderer renderer;
+        renderer.SetRenderSettings(request_data);
 
-    return 0;
+        // Создание ручки
+        output::RequestHandler db_handler(
+            reader.GetBase(),
+            renderer
+        );
+        
+        // Обработка запросов к базе
+        json::Document response_data { db_handler.ProcessStatRequests(request_data) };
+        
+        // Вывод результата
+        json::Print(response_data, std::cout);
+    }
+    catch (const std::exception& e) {
+        std::cout << "Error: " << e.what() << "\n";
+    }
 }
