@@ -27,7 +27,8 @@ int main() {
         output::RequestHandler db_handler(db, renderer);
         
         // Обработка запросов к базе
-        json::Document response_data = db_handler.ProcessStatRequests(request_data);
+        json::Document response_data = 
+            db_handler.ProcessStatRequests(request_data);
         
         // Вывод результата
         json::Print(response_data, std::cout);
