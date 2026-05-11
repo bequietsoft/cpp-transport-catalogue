@@ -2,6 +2,7 @@
 
 #include "transport_catalogue.h"
 #include "map_renderer.h"
+#include "json.h"
 
 #include <memory>
 #include <optional>
@@ -26,14 +27,22 @@ namespace transport_catalogue::output {
         // Возвращает маршруты, проходящие через остановку (запрос Stop)
         const StopBuses* GetBusesByStop(const std::string_view& stop_name) const;
 
-
         // Отрисовка карты маршрута в SVG
-        svg::Document RenderMap() const;
+        svg::Document GetMap() const;
 
     private:
         // RequestHandler использует агрегацию объектов "Транспортный Справочник" и "Визуализатор Карты"
         const TransportCatalogue& db_;
         const render::MapRenderer& renderer_;
+
+        // Запрос информации об остановке
+        json::Dict ProcessStopRequest(const json::Dict& request) const;
+
+        // Запрос информации о маршруте
+        json::Dict ProcessBusRequest(const json::Dict& request) const;
+
+        // Запрос карты маршрута
+        json::Dict ProcessMapRequest(const json::Dict& request) const;
     };
 
 } // end of namespace transport_catalogue::output

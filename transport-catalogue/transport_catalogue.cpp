@@ -5,12 +5,14 @@ namespace transport_catalogue {
     // Методы построения:
 
     // Добавляет маршрут
-    BusPtr TransportCatalogue::AddBus(const std::string_view id, const std::vector<std::string_view>& stops, bool is_roundtrip) {
+    BusPtr TransportCatalogue::AddBus(const std::string_view id, 
+        const std::vector<std::string_view>& stops, bool is_roundtrip) {
+            
         // Повторное создание маршрута запрещено
         assert(GetBus(id) == nullptr);
 
         // Построение маршрута (vector<StopPtr>)
-        Route route;
+        Stops route;
         route.reserve(stops.size());
         for (auto stop_id_view: stops) {
             if (StopPtr stop_ptr = AddStop(stop_id_view, {}))
@@ -198,7 +200,7 @@ namespace transport_catalogue {
     } // end of namespace detail
     
     // Возвращает отсортированный список маршрутов
-    const std::vector<BusPtr> TransportCatalogue::GetSortedBuses() const {
+    const Buses TransportCatalogue::GetSortedBuses() const {
         return detail::SortedMap<std::string_view, BusPtr>(
             buses_map_,     
             [](const BusPtr a, const BusPtr b) {
@@ -207,10 +209,18 @@ namespace transport_catalogue {
         );
     }
 
-    // Возвращает отсортированный список остановок
-    const std::vector<StopPtr> TransportCatalogue::GetSortedStops() const {
+    // Возвращает отсортированный список остановок входящих в маршруты
+    const Stops TransportCatalogue::GetActiveSortedStops() const {
+
+        std::unordered_map<std::string_view, StopPtr> active_stops_map_;
+        for(const auto& [stop_id_view, stop_ptr] : stops_map_) {
+            const StopBuses* stop_buses = GetBusesByStop(stop_ptr);
+            if (!stop_buses || stop_buses->empty()) continue;
+            active_stops_map_.try_emplace(stop_id_view, stop_ptr);
+        }
+
         return detail::SortedMap<std::string_view, StopPtr>(
-            stops_map_,
+            active_stops_map_,
             [](const StopPtr a, const StopPtr b) {
                 return a->id < b->id;
             }

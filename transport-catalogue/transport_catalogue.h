@@ -32,10 +32,10 @@ namespace transport_catalogue {
         double GetRouteLength(const BusPtr bus_ptr, bool use_geo_distance = false) const;
 
         // Возвращает отсортированный список маршрутов
-        const std::vector<BusPtr> GetSortedBuses() const;
+        const Buses GetSortedBuses() const;
 
-        // Возвращает отсортированный список остановок
-        const std::vector<StopPtr> GetSortedStops() const;
+        // Возвращает отсортированный список остановок входящих в маршруты
+        const Stops GetActiveSortedStops() const;
 
     private:
         // Массивы данных:

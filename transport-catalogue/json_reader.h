@@ -1,28 +1,21 @@
 #pragma once
 
-#include "transport_catalogue.h"
 #include "json.h"
+#include "transport_catalogue.h"
+#include "map_renderer.h"
 
 namespace transport_catalogue::input {
 
     using namespace transport_catalogue;
-    
+    using namespace render;
+
     class JsonReader {
     public:
         // Обрабатывает запросы формирования базы
-        void ProcessBaseRequests(json::Document& request_data);
+        TransportCatalogue GetDataBase(const json::Document& request_data) const;
     
-        // Доступ к базе для чтения
-        const TransportCatalogue& GetBase() const { return db_; }
-        
-    private:
-        TransportCatalogue db_ {};
-
-        // Обрабатывает запрос создания остановки
-        void ProcessStopRequest(const json::Dict& request);
-
-        // Обрабатывает запрос создания маршрута
-        void ProcessBusRequest(const json::Dict& request);
+        // Читает параметры отрисовки
+        RenderSettings GetRenderSettings(const json::Document& request_data) const;
     };
 
 } // end of namespace transport_catalogue::input

@@ -3,7 +3,6 @@
 #include "map_renderer.h"
 
 int main() {
-
     using namespace transport_catalogue::input;
     using namespace transport_catalogue::output;
 
@@ -13,25 +12,30 @@ int main() {
 
         // Создание загрузчика
         input::JsonReader reader;
-        reader.ProcessBaseRequests(request_data);
-    
-        // Создание отрисовщика
-        render::MapRenderer renderer;
-        renderer.SetRenderSettings(request_data);
+
+        // Загрузка базы данных
+        transport_catalogue::TransportCatalogue db = 
+            reader.GetDataBase(request_data);
+
+        // Загрузка параметров отрисовщика
+        render::RenderSettings render_settings = 
+            reader.GetRenderSettings(request_data);
+
+        render::MapRenderer renderer(render_settings);
 
         // Создание ручки
-        output::RequestHandler db_handler(
-            reader.GetBase(),
-            renderer
-        );
+        output::RequestHandler db_handler(db, renderer);
         
         // Обработка запросов к базе
-        json::Document response_data { db_handler.ProcessStatRequests(request_data) };
+        json::Document response_data = db_handler.ProcessStatRequests(request_data);
         
         // Вывод результата
         json::Print(response_data, std::cout);
     }
-    catch (const std::exception& e) {
-        std::cout << "Error: " << e.what() << "\n";
+    catch (const std::exception& exception) {
+        std::cout << "Error: " << exception.what() << "\n";
+        return 1;
     }
+
+    return 0;
 }

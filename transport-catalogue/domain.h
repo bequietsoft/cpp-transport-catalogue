@@ -16,7 +16,9 @@ namespace domain {
     using StopPtr = Stop*;
     using BusPtr = Bus*;
 
-    using Route = std::vector<StopPtr>;
+    using Buses = std::vector<BusPtr>;
+    using Stops = std::vector<StopPtr>;
+    
     using StopBuses = std::set<BusPtr, StopBusesComparator>;
 
     struct Stop {
@@ -29,10 +31,10 @@ namespace domain {
 
     struct Bus {
         std::string id;
-        Route route;
+        Stops route;
         bool is_roundtrip;
 
-        Bus(const std::string id, Route route, bool is_roundtrip)
+        Bus(const std::string id, Stops route, bool is_roundtrip)
             : id(std::move(id)), route(std::move(route)), is_roundtrip(is_roundtrip) {}
     };
 
