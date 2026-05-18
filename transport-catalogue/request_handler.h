@@ -36,13 +36,13 @@ namespace transport_catalogue::output {
         const render::MapRenderer& renderer_;
 
         // Запрос информации об остановке
-        json::Dict ProcessStopRequest(const json::Dict& request) const;
+        json::Document ProcessStopRequest(const json::Dict& request) const;
 
         // Запрос информации о маршруте
-        json::Dict ProcessBusRequest(const json::Dict& request) const;
+        json::Document ProcessBusRequest(const json::Dict& request) const;
 
         // Запрос карты маршрута
-        json::Dict ProcessMapRequest(const json::Dict& request) const;
+        json::Document ProcessMapRequest(const json::Dict& request) const;
     };
 
 } // end of namespace transport_catalogue::output

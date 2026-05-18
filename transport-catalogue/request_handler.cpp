@@ -1,4 +1,5 @@
 #include "request_handler.h"
+#include "json_builder.h"
 
 namespace transport_catalogue::output {
     
@@ -7,23 +8,22 @@ namespace transport_catalogue::output {
     // Обработка запросов к базе
     json::Document RequestHandler::ProcessStatRequests(json::Document& request_data) const {
         json::Array response_root; 
-        const auto& request_root = request_data.GetRoot().AsMap();
+        const auto& request_root = request_data.GetRoot().AsDict();
 
         if (request_root.count("stat_requests")) {
             const auto& stat_requests = request_root.at("stat_requests").AsArray();
 
             for (const auto& request_node : stat_requests) {
-                const json::Dict& request = request_node.AsMap();
+                const json::Dict& request = request_node.AsDict();
                 std::string_view request_type = request.at("type").AsString();
                 
-                json::Dict response; 
+                json::Document response;
 
                 if (request_type == "Stop") response = ProcessStopRequest(request);
                 if (request_type == "Bus") response = ProcessBusRequest(request);
                 if (request_type == "Map") response = ProcessMapRequest(request);
 
-                json::Node node(response);
-                response_root.push_back(node);
+                response_root.push_back(response.GetRoot());
             }
         }
 
@@ -51,58 +51,65 @@ namespace transport_catalogue::output {
 	}
 
     // Запрос информации об остановке
-    json::Dict RequestHandler::ProcessStopRequest(const json::Dict& request) const {
-        json::Dict response;
-        response["request_id"] = json::Node(request.at("id").AsInt());
+    json::Document RequestHandler::ProcessStopRequest(const json::Dict& request) const {
+        json::Builder builder;
+        builder.StartDict()
+            .Key("request_id").Value(request.at("id").AsInt());
 
         std::string_view stop_name = request.at("name").AsString();
         const StopBuses* stop_buses_ptr = GetBusesByStop(stop_name);
         if (stop_buses_ptr) {
-            json::Array buses_array;
+            builder.Key("buses").StartArray();
             for (auto bus_ptr : *stop_buses_ptr) {
-                buses_array.push_back(json::Node(std::string(bus_ptr->id)));
+                builder.Value(std::string(bus_ptr->id));
             }
-            response["buses"] = json::Node(buses_array);
-        }
-        else {
-            response["error_message"] = json::Node(std::string("not found"));
+            builder.EndArray();
+        } else {
+            builder.Key("error_message").Value("not found");
         }
 
-        return response;
+        builder.EndDict();
+        return builder.Build();
     }
 
     // Запрос информации о маршруте
-    json::Dict RequestHandler::ProcessBusRequest(const json::Dict& request) const {
-        json::Dict response;
-        response["request_id"] = json::Node(request.at("id").AsInt());
+    json::Document RequestHandler::ProcessBusRequest(const json::Dict& request) const {
+        json::Builder builder;
+        builder.StartDict()
+            .Key("request_id").Value(request.at("id").AsInt());
 
-        std::string_view bus_name = request.at("name").AsString(); 
-        std::optional<BusStat> bus_stat_opt = GetBusStat(bus_name); 
-        if (bus_stat_opt.has_value()) { 
-            [[maybe_unused]] const BusStat& stat = bus_stat_opt.value(); 
-            response["curvature"] = json::Node(static_cast<double>(stat.curvature)); 
-            response["route_length"] = json::Node(static_cast<double>(stat.route_length)); 
-            response["stop_count"] = json::Node(static_cast<int>(stat.stop_count)); 
-            response["unique_stop_count"] = json::Node(static_cast<int>(stat.unique_stop_count)); 
-        } 
-        else { 
-            response["error_message"] = json::Node(std::string("not found")); 
-        } 
+        std::string_view bus_name = request.at("name").AsString();
+        std::optional<BusStat> bus_stat_opt = GetBusStat(bus_name);
+        if (bus_stat_opt.has_value()) {
+            const BusStat& stat = bus_stat_opt.value();
+            builder
+                .Key("curvature").Value(static_cast<double>(stat.curvature))
+                .Key("route_length").Value(static_cast<double>(stat.route_length))
+                .Key("stop_count").Value(static_cast<int>(stat.stop_count))
+                .Key("unique_stop_count").Value(static_cast<int>(stat.unique_stop_count));
+        } else {
+            builder.Key("error_message").Value("not found");
+        }
 
-        return response;
+        builder.EndDict();
+        return builder.Build();
     }
 
     // Запрос карты маршрута
-    json::Dict RequestHandler::ProcessMapRequest(const json::Dict& request) const {
-        json::Dict response;
-        response["request_id"] = json::Node(request.at("id").AsInt());
+    json::Document RequestHandler::ProcessMapRequest(const json::Dict& request) const {
+        json::Builder builder;
+
+        builder.StartDict()
+            .Key("request_id").Value(request.at("id").AsInt());
 
         svg::Document map = GetMap();
         std::stringstream string_stream;
         map.Render(string_stream);
-        response["map"] = json::Node(string_stream.str());
 
-        return response;
+        builder.Key("map").Value(string_stream.str());
+        
+        builder.EndDict();
+        return builder.Build();
     }
 
 } // end of namespace transport_catalogue::output

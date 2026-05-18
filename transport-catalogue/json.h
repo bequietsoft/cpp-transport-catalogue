@@ -61,7 +61,7 @@ namespace json {
         const std::string& AsString() const;
         bool AsBool() const;
         const Array& AsArray() const;
-        const Dict& AsMap() const;
+        const Dict& AsDict() const;
 
         // Методы проверки типа
         bool IsInt() const;
@@ -70,7 +70,7 @@ namespace json {
         bool IsString() const;
         bool IsBool() const;
         bool IsArray() const;
-        bool IsMap() const;
+        bool IsDict() const;
         bool IsNull() const;
 
         // Операторы сравнения
@@ -87,14 +87,21 @@ namespace json {
     // Документ JSON
     class Document {
     public:
-        explicit Document(Node root);
-        const Node& GetRoot() const;
+        Document() = default;
+        explicit Document(Node root) : root_(std::move(root)) {};
+        const Node& GetRoot() const { return root_; }
         
-        bool operator==(const Document& other) const;
-
     private:
         Node root_;
     };
+
+    inline bool operator==(const Document& lhs, const Document& rhs) {
+        return lhs.GetRoot() == rhs.GetRoot();
+    }
+
+    inline bool operator!=(const Document& lhs, const Document& rhs) {
+        return !(lhs == rhs);
+    }
 
     // Загрузка документа из потока
     Document Load(std::istream& input);

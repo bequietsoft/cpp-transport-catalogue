@@ -221,8 +221,8 @@ namespace json {
         return std::get<Array>(value_);
     }
 
-    const Dict& Node::AsMap() const {
-        if (!IsMap())
+    const Dict& Node::AsDict() const {
+        if (!IsDict())
             throw std::logic_error("Node is not a Dict");
         return std::get<Dict>(value_);
     }
@@ -234,7 +234,7 @@ namespace json {
     bool Node::IsString() const { return std::holds_alternative<std::string>(value_); }
     bool Node::IsBool() const { return std::holds_alternative<bool>(value_); }
     bool Node::IsArray() const { return std::holds_alternative<Array>(value_); }
-    bool Node::IsMap() const { return std::holds_alternative<Dict>(value_); }
+    bool Node::IsDict() const { return std::holds_alternative<Dict>(value_); }
     bool Node::IsNull() const { return std::holds_alternative<std::nullptr_t>(value_); }
 
     // Операторы сравнения
@@ -248,17 +248,6 @@ namespace json {
 
 
     // Документ JSON
-
-    Document::Document(Node root)
-        : root_(std::move(root)) {} //
-
-    const Node& Document::GetRoot() const {
-        return root_;
-    }
-
-    bool Document::operator==(const Document& other) const {
-        return root_ == other.root_;
-    }
 
     // Загрузка документа из потока
     Document Load(std::istream& input) {

@@ -15,7 +15,7 @@ namespace transport_catalogue::input {
 
             // Обрабатываем расстояния до соседних остановок
             if (request.count("road_distances")) {
-                const auto& distances = request.at("road_distances").AsMap();
+                const auto& distances = request.at("road_distances").AsDict();
                 for (const auto& [to_stop, distance_node] : distances) {
                     double distance = distance_node.AsDouble();
                     db.AddDistance(stop_name, to_stop, distance);
@@ -91,14 +91,14 @@ namespace transport_catalogue::input {
     TransportCatalogue JsonReader::GetDataBase(const json::Document& request_data) const {
         TransportCatalogue db {};
 
-        const auto& root = request_data.GetRoot().AsMap();
+        const auto& root = request_data.GetRoot().AsDict();
 
         if (root.count("base_requests")) {
             // Извлекаем массив запросов
             const auto& base_requests = root.at("base_requests").AsArray();
 
             for (const auto& request_node : base_requests) {
-                const auto& request_dict = request_node.AsMap();
+                const auto& request_dict = request_node.AsDict();
                 const std::string type = request_dict.at("type").AsString();
 
                 if (type == "Stop") detail::ProcessStopRequest(db, request_dict);
@@ -113,12 +113,12 @@ namespace transport_catalogue::input {
 
     // Читает параметры отрисовки
     RenderSettings JsonReader::GetRenderSettings(const json::Document& request_data) const {
-        const auto& root = request_data.GetRoot().AsMap();
+        const auto& root = request_data.GetRoot().AsDict();
         
         if (root.count("render_settings")) {
             RenderSettings render_settings;
 
-            const auto& render_settings_node = root.at("render_settings").AsMap();
+            const auto& render_settings_node = root.at("render_settings").AsDict();
 
             render_settings.width = render_settings_node.at("width").AsDouble();
             render_settings.height = render_settings_node.at("height").AsDouble();
