@@ -7,91 +7,23 @@
 
 namespace json {
 
-class Builder;
-
-    // Предварительные объявления классов
-    class Builder;
-    class RootContext;
+    // Преварительные определения:
+    class BaseContext;
+    class DictKeyContext;
     class DictContext;
     class ArrayContext;
-    class KeyContext;
-    class DictValueContext;
-    class ArrayValueContext;
-    class ValueContext;
 
-    // Контексты
-    class ContextBase {
-    protected:
-        explicit ContextBase(Builder& builder) : builder_(builder) {}
-        Builder& builder_;
-    };
-
-    class RootContext : public ContextBase {
-    public:
-        explicit RootContext(Builder& builder) : ContextBase(builder) {}
-        DictContext StartDict();
-        ArrayContext StartArray();
-        ValueContext Value(Node::Value value);
-        Document Build();
-    };
-
-    class DictContext : public ContextBase {
-    public:
-        explicit DictContext(Builder& builder) : ContextBase(builder) {}
-        KeyContext Key(std::string key);
-        Builder& EndDict();
-    };
-
-    class ArrayContext : public ContextBase {
-    public:
-        explicit ArrayContext(Builder& builder) : ContextBase(builder) {}
-        ArrayValueContext Value(Node::Value value);
-        DictContext StartDict();
-        ArrayContext StartArray();
-        Builder& EndArray();
-    };
-
-    class KeyContext : public ContextBase {
-    public:
-        explicit KeyContext(Builder& builder) : ContextBase(builder) {}
-        DictValueContext Value(Node::Value value);
-        DictContext StartDict();
-        ArrayContext StartArray();
-    };
-
-    class DictValueContext : public ContextBase {
-    public:
-        explicit DictValueContext(Builder& builder) : ContextBase(builder) {}
-        KeyContext Key(std::string key);
-        Builder& EndDict();
-    };
-
-    class ArrayValueContext : public ContextBase {
-    public:
-        explicit ArrayValueContext(Builder& builder) : ContextBase(builder) {}
-        ArrayValueContext Value(Node::Value value);
-        DictContext StartDict();
-        ArrayContext StartArray();
-        Builder& EndArray();
-    };
-
-    class ValueContext : public ContextBase {
-    public:
-        explicit ValueContext(Builder& builder) : ContextBase(builder) {}
-        Builder& EndArray();
-        Document Build();
-    };
 
     // Основной класс
     class Builder {
     public:
-        Document Build();
-        KeyContext Key(std::string key);
-        ValueContext Value(Node::Value value);
+        DictKeyContext Key(std::string key);
+        BaseContext Value(Node::Value value);
         DictContext StartDict();
-        Builder& EndDict();
+        BaseContext EndDict();
         ArrayContext StartArray();
-        Builder& EndArray();
+        BaseContext EndArray();
+        Document Build();
 
     private:
         std::string current_key_;
@@ -110,6 +42,64 @@ class Builder;
         bool InArrayContext() const;
 
         void Error(const std::string& msg) const;
+    };
+
+
+    // Контексты:
+
+    // Контекст общего случая 
+    // разрешены все методы построения: Key, Value, StartDict/StartArray, EndDict/EndArray, Build 
+    class BaseContext {
+    public:
+        BaseContext(Builder& builder) : builder_(builder) {}    
+        DictKeyContext Key(std::string key);
+        BaseContext Value(Node::Value value);
+        DictContext StartDict();
+        BaseContext EndDict();
+        ArrayContext StartArray();
+        BaseContext EndArray();
+        Document Build();
+    
+    protected:
+        Builder& builder_; 
+    };
+
+    // Контекст после Key в словаре 
+    // разрешены: Value(переопределен), StartDict/StartArray
+    // запрещены: Key, EndDict/EndArray, Build
+    class DictKeyContext : public BaseContext {
+    public:
+        DictKeyContext(BaseContext context) : BaseContext(context) {}
+        DictContext Value(Node::Value value);
+        DictKeyContext Key(std::string key) = delete;
+        BaseContext EndDict() = delete;
+        BaseContext EndArray() = delete;
+        Document Build() = delete;
+    };
+
+    // Контекст после Value() в словаре
+    // разрешены: Key, EndDict
+    // запрещены: Value, StartDict/StartArray, EndArray, Build)
+    class DictContext : public BaseContext {
+    public:
+        DictContext(BaseContext context) : BaseContext(context) {}
+        BaseContext Value(Node::Value value) = delete;
+        DictContext StartDict() = delete;
+        ArrayContext StartArray() = delete;
+        BaseContext EndArray() = delete;
+        Document Build() = delete;
+    };
+
+    // Контекст после Value в массиве
+    // разрешены: Value(переопределен), StartDict/StartArray, EndArray
+    // запрещены: Key, EndDict, Build)
+    class ArrayContext : public BaseContext {
+    public:
+        ArrayContext(BaseContext context) : BaseContext(context) {}
+        ArrayContext Value(Node::Value value);
+        DictKeyContext Key(std::string key) = delete;
+        BaseContext EndDict() = delete;
+        Document Build() = delete;
     };
 
 } // end of namespace json

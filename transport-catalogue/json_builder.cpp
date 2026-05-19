@@ -2,51 +2,23 @@
 
 namespace json {
 
-    // Контекстные методы
+    // Реализации контекстных методов:
 
-    DictContext RootContext::StartDict() { return builder_.StartDict(); }
-    ArrayContext RootContext::StartArray() { return builder_.StartArray(); }
-    ValueContext RootContext::Value(Node::Value value) { return builder_.Value(value); }
-    Document RootContext::Build() { return builder_.Build(); }
+    DictKeyContext BaseContext::Key(std::string key) { return builder_.Key(std::move(key)); }
+    BaseContext BaseContext::Value(Node::Value value) { return builder_.Value(std::move(value)); }
+    DictContext BaseContext::StartDict() { return builder_.StartDict(); }
+    BaseContext BaseContext::EndDict() { return builder_.EndDict(); }
+    ArrayContext BaseContext::StartArray() { return builder_.StartArray(); }
+    BaseContext BaseContext::EndArray() { return builder_.EndArray(); }
+    Document BaseContext::Build() { return builder_.Build(); }
 
-    KeyContext DictContext::Key(std::string key) { return builder_.Key(key); }
-    Builder& DictContext::EndDict() { return builder_.EndDict(); }
-
-    ArrayValueContext ArrayContext::Value(Node::Value value) { 
-        builder_.Value(value); return ArrayValueContext(builder_); }
-    DictContext ArrayContext::StartDict() { return builder_.StartDict(); }
-    ArrayContext ArrayContext::StartArray() { return builder_.StartArray(); }
-    Builder& ArrayContext::EndArray() { return builder_.EndArray(); }
-
-    DictValueContext KeyContext::Value(Node::Value value) { 
-        builder_.Value(value); return DictValueContext(builder_); }
-    DictContext KeyContext::StartDict() { return builder_.StartDict(); }
-    ArrayContext KeyContext::StartArray() { return builder_.StartArray(); }
-
-    KeyContext DictValueContext::Key(std::string key) { return builder_.Key(key); }
-    Builder& DictValueContext::EndDict() { return builder_.EndDict(); }
-
-    ArrayValueContext ArrayValueContext::Value(Node::Value value) { 
-        builder_.Value(value); return ArrayValueContext(builder_); }
-    DictContext ArrayValueContext::StartDict() { return builder_.StartDict(); }
-    ArrayContext ArrayValueContext::StartArray() { return builder_.StartArray(); }
-    Builder& ArrayValueContext::EndArray() { return builder_.EndArray(); }
-
-    Document ValueContext::Build() { return builder_.Build(); }
-    Builder& ValueContext::EndArray() { return builder_.EndArray(); }
+    DictContext DictKeyContext::Value(Node::Value value) { return builder_.Value(std::move(value)); }
+    ArrayContext ArrayContext::Value(Node::Value value) { return builder_.Value(std::move(value)); }
 
 
-    // Методы основного класса
+    // Методы основного класса:
 
-    Document Builder::Build() {
-        if (nodes_stack_.size() != 1) 
-            Error("Build: Error JSON");
-        
-        is_built_ = true;
-        return Document(std::move(*nodes_stack_[0]));
-    }
-
-    KeyContext Builder::Key(std::string key) {
+    DictKeyContext Builder::Key(std::string key) {
         if (is_built_) 
             Error("Key: Build already called");
 
@@ -57,10 +29,10 @@ namespace json {
         expect_key_ = false;
         expect_value_ = true;
         
-        return KeyContext(*this);
+        return DictKeyContext(*this);
     }
 
-    ValueContext Builder::Value(Node::Value value) {
+    BaseContext Builder::Value(Node::Value value) {
         if (is_built_) 
             Error("Value: Build already called");
 
@@ -76,7 +48,7 @@ namespace json {
         expect_key_ = InDictContext();
         expect_value_ = InArrayContext(); 
 
-        return ValueContext(*this);
+        return BaseContext(*this);
     }
 
     Builder& Builder::StartContainer(Node* container_ptr) {
@@ -112,22 +84,30 @@ namespace json {
         return DictContext(StartContainer(new Node(Dict{})));
     }
 
-    Builder& Builder::EndDict() {
+    BaseContext Builder::EndDict() {
         if (!InDictContext()) 
             Error("EndDict: EndDict in wrong context");
 
-        return EndContainer();
+        return BaseContext(EndContainer());
     }
 
     ArrayContext Builder::StartArray() {
         return ArrayContext(StartContainer(new Node(Array{})));
     }
 
-    Builder& Builder::EndArray() {
+    BaseContext Builder::EndArray() {
         if (!InArrayContext()) 
             Error("EndArray: EndArray in wrong context");
 
-        return EndContainer();
+        return BaseContext(EndContainer());
+    }
+
+    Document Builder::Build() {
+        if (nodes_stack_.size() != 1) 
+            Error("Build: Error JSON");
+        
+        is_built_ = true;
+        return Document(std::move(*nodes_stack_[0]));
     }
 
     // Добавляет узел или контейнер в текущий контекст и возвращает текущий контекст
