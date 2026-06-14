@@ -24,6 +24,10 @@ namespace transport_catalogue {
         StopPtr GetStop(const std::string_view id) const;
         double GetDistance(const StopPtr from_stop_ptr, const StopPtr to_stop_ptr) const;
         
+        const std::deque<Stop>& GetAllStops() const;
+        const std::deque<Bus>& GetAllBuses() const;
+        size_t GetStopIndex(StopPtr stop_ptr) const;
+
         // Методы запросов:
         const StopBuses* GetBusesByStop(const StopPtr stop_ptr) const;
         const BusStat GetBusStat(const BusPtr bus_ptr) const;
@@ -31,11 +35,14 @@ namespace transport_catalogue {
         size_t GetRouteUniqueStopsCount(const BusPtr bus_ptr) const;
         double GetRouteLength(const BusPtr bus_ptr, bool use_geo_distance = false) const;
 
-        // Возвращает отсортированный список маршрутов
+        // Возвращает отсортированный список автобусов
         const Buses GetSortedBuses() const;
 
-        // Возвращает отсортированный список остановок входящих в маршруты
+        // Возвращает отсортированный список остановок, через которые ходят автобусы
         const Stops GetActiveSortedStops() const;
+
+        // Активная остановка (через остановку ходят автобусы)
+        bool IsActiveStop(const std::string_view id) const;
 
     private:
         // Массивы данных:
@@ -47,8 +54,9 @@ namespace transport_catalogue {
         std::unordered_map<std::string_view, StopPtr> stops_map_;
 
         std::unordered_map<std::string_view, StopBuses> stop_buses_map_;
+        std::unordered_map<StopPtr, size_t> stops_ids_map_;
 
-        std::unordered_map<std::string_view,
+        mutable std::unordered_map<std::string_view,
             std::unordered_map<std::string_view, double>> distances_map_;
     };
 

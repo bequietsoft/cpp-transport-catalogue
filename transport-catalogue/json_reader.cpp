@@ -154,5 +154,23 @@ namespace transport_catalogue::input {
 
         return {};
     }
+
+    // Читает параметры маршрутизации
+    RoutingSettings JsonReader::GetRoutingSettings(const json::Document& request_data) const {
+        const auto& root = request_data.GetRoot().AsDict();
+        
+        if (root.count("routing_settings")) {
+            RoutingSettings routing_settings;
+
+            const auto& routing_settings_node = root.at("routing_settings").AsDict();
+
+            routing_settings.bus_wait_time = routing_settings_node.at("bus_wait_time").AsInt();
+            routing_settings.bus_velocity = routing_settings_node.at("bus_velocity").AsDouble();
+            
+            return routing_settings;
+        }
+
+        return {};
+    }
     
 } // end of namespace transport_catalogue::input

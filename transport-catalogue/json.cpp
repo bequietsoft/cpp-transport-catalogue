@@ -340,6 +340,7 @@ namespace json {
         auto indented = context.Indented();
 
         if (arr.empty()) {
+            context.output << "\n";
             context.PrintIndent();
             context.output << "]";
             return;

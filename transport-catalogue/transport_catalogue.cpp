@@ -4,24 +4,24 @@ namespace transport_catalogue {
 
     // Методы построения:
 
-    // Добавляет маршрут
+    // Добавляет автобус
     BusPtr TransportCatalogue::AddBus(const std::string_view id, 
-        const std::vector<std::string_view>& stops, bool is_roundtrip) {
+        const std::vector<std::string_view>& stops_ids, bool is_roundtrip) {
             
-        // Повторное создание маршрута запрещено
+        // Автобус существует
         assert(GetBus(id) == nullptr);
 
-        // Построение маршрута (vector<StopPtr>)
-        Stops route;
-        route.reserve(stops.size());
-        for (auto stop_id_view: stops) {
-            if (StopPtr stop_ptr = AddStop(stop_id_view, {}))
-                route.push_back(stop_ptr);
+        // Остановки автобуса (Stops = vector<StopPtr>)
+        Stops stops;
+        stops.reserve(stops_ids.size());
+        for (auto stop_id: stops_ids) {
+            if (StopPtr stop_ptr = AddStop(stop_id, {}))
+                stops.push_back(stop_ptr);
         }
 
         // Создание объекта в хранилище (string и vector<StopPtr>),
         // move-семантика в инициализаторе объекта Bus
-        Bus bus(std::string(id), route, is_roundtrip);
+        Bus bus(std::string(id), stops, is_roundtrip);
         buses_.emplace_back(std::move(bus));
         BusPtr bus_ptr = &buses_.back();
 
@@ -29,9 +29,9 @@ namespace transport_catalogue {
         std::string_view bus_id_view = bus_ptr->id;
         buses_map_.try_emplace(bus_id_view, bus_ptr);
         
-        // Обновление списка автобусов остановок маршрута route
-        //  формат (unordered_set<BusPtr> c лямбда-омпаратором лексикографической сортировки)
-        for (auto stop: route) {
+        // Обновление списка автобусов остановок stops
+        // формат (set<BusPtr> c лямбда-компаратором лексикографической сортировки)
+        for (auto stop: stops) {
             StopBuses& stop_buses = stop_buses_map_[stop->id];
             stop_buses.insert(bus_ptr);
         }
@@ -60,6 +60,8 @@ namespace transport_catalogue {
         std::string_view stop_id_view = stop_ptr->id;
         stops_map_.try_emplace(stop_id_view, stop_ptr);
 
+        stops_ids_map_.try_emplace(stop_ptr, stops_.size() - 1);
+
         // Инициализация списка автобусов остановки
         stop_buses_map_[stop_id_view] = {};
 
@@ -76,7 +78,7 @@ namespace transport_catalogue {
 
     // Методы доступа:
 
-    // Возвращает указатель на маршрут
+    // Возвращает указатель на автобус
     BusPtr TransportCatalogue::GetBus(const std::string_view id) const {
         auto it = buses_map_.find(id);
         return it == buses_map_.end() ? nullptr : it->second;
@@ -112,21 +114,43 @@ namespace transport_catalogue {
         }
 
         // Заданного растояния нет, возврат расстояния между геопозициями остановок:
-        double compute_dist = geo::ComputeDistance(from_stop_ptr->location, to_stop_ptr->location);
-        return compute_dist;
+        double compute_distance = geo::ComputeDistance(from_stop_ptr->location, to_stop_ptr->location);
+        
+        // Запомнить расстояние, если нет заранее заданного или вычисленного
+        distances_map_[from_stop_ptr->id][to_stop_ptr->id] = compute_distance;
+        distances_map_[to_stop_ptr->id][from_stop_ptr->id] = compute_distance;
+
+        return compute_distance;
     }
 
 
+    // Возвращает список всех остановок (чтение)
+    const std::deque<Stop>& TransportCatalogue::GetAllStops() const {
+        return stops_;
+    }
+
+    // Возвращает список всех автобусов (чтение)
+    const std::deque<Bus>& TransportCatalogue::GetAllBuses() const {
+        return buses_;
+    }
+
+    // Возвращает индекс остановки в stops_
+    size_t TransportCatalogue::GetStopIndex(StopPtr stop_ptr) const {
+        size_t index = stops_ids_map_.at(stop_ptr);
+        return index;
+    }
+    
+
     // Методы запросов:
 
-    // Возвращает указатель на список маршрутов остановки
+    // Возвращает указатель на список автобусов остановки
     const StopBuses* TransportCatalogue::GetBusesByStop(const StopPtr stop_ptr) const {
         assert(stop_ptr != nullptr);
         auto it = stop_buses_map_.find(stop_ptr->id);
         return it == stop_buses_map_.end() ? nullptr : &it->second;
     }
 
-    // Возвращает информацию о маршруте
+    // Возвращает информацию об автобусе
     const BusStat TransportCatalogue::GetBusStat(const BusPtr bus_ptr) const {
         assert(bus_ptr != nullptr);
         
@@ -144,7 +168,7 @@ namespace transport_catalogue {
         };
     }
 
-    // Возвращает уникальные остановки маршрута
+    // Возвращает уникальные остановки автобуса
     size_t TransportCatalogue::GetRouteUniqueStopsCount(const BusPtr bus_ptr) const {
         assert(bus_ptr != nullptr);
 
@@ -159,7 +183,7 @@ namespace transport_catalogue {
         return std::distance(temp.begin(), first_double);
     }
 
-    // Возвращает длину маршрута
+    // Возвращает длину маршрута автобуса
     // use_geo_distance - вычисление по гео-точкам (по умолчанию false)
     double TransportCatalogue::GetRouteLength(const BusPtr bus_ptr, bool use_geo_distance) const {
         assert(bus_ptr != nullptr);
@@ -199,7 +223,7 @@ namespace transport_catalogue {
 
     } // end of namespace detail
     
-    // Возвращает отсортированный список маршрутов
+    // Возвращает отсортированный вектор автобусов
     const Buses TransportCatalogue::GetSortedBuses() const {
         return detail::SortedMap<std::string_view, BusPtr>(
             buses_map_,     
@@ -209,14 +233,14 @@ namespace transport_catalogue {
         );
     }
 
-    // Возвращает отсортированный список остановок входящих в маршруты
+    // Возвращает отсортированный вектор остановок, через которые ходят автобусы
     const Stops TransportCatalogue::GetActiveSortedStops() const {
 
         std::unordered_map<std::string_view, StopPtr> active_stops_map_;
         for(const auto& [stop_id_view, stop_ptr] : stops_map_) {
             const StopBuses* stop_buses = GetBusesByStop(stop_ptr);
-            if (!stop_buses || stop_buses->empty()) continue;
-            active_stops_map_.try_emplace(stop_id_view, stop_ptr);
+            if (stop_buses && !stop_buses->empty())
+                active_stops_map_.try_emplace(stop_id_view, stop_ptr);
         }
 
         return detail::SortedMap<std::string_view, StopPtr>(
@@ -225,6 +249,12 @@ namespace transport_catalogue {
                 return a->id < b->id;
             }
         );
+    }
+
+    // Активная остановка (через остановку ходят автобусы)
+    bool TransportCatalogue::IsActiveStop(const std::string_view id) const {
+        auto it = stop_buses_map_.find(id);
+        return it == stop_buses_map_.end() ? false : static_cast<bool>(it->second.size());
     }
 
 } // end of namespace transport_catalogue

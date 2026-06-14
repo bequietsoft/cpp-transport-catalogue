@@ -22,6 +22,7 @@ namespace transport_catalogue::output {
                 if (request_type == "Stop") response = ProcessStopRequest(request);
                 if (request_type == "Bus") response = ProcessBusRequest(request);
                 if (request_type == "Map") response = ProcessMapRequest(request);
+                if (request_type == "Route") response = ProcessRouteRequest(request);
 
                 response_root.push_back(response.GetRoot());
             }
@@ -31,30 +32,34 @@ namespace transport_catalogue::output {
         return json::Document(response_root_node);
     }
 
-    // Возвращает информацию о маршруте (запрос Bus)
+    // Возвращает информацию об автобусе
     std::optional<BusStat> RequestHandler::GetBusStat(const std::string_view& bus_name) const {
         const BusPtr bus_ptr = db_.GetBus(bus_name);
         if (!bus_ptr) return std::nullopt;
         return std::move(db_.GetBusStat(bus_ptr));
     }
 
-    // Возвращает маршруты, проходящие через остановку (запрос Stop)
+    // Возвращает автобусы, проходящие через остановку
     const StopBuses* RequestHandler::GetBusesByStop(const std::string_view& stop_name) const {
         const StopPtr stop_ptr = db_.GetStop(stop_name);
         if (!stop_ptr) return nullptr;
         return db_.GetBusesByStop(stop_ptr);
     }
 
-    // Отрисовка карты маршрута в SVG
+    // Возвращает карту остановок
     svg::Document RequestHandler::GetMap() const {
-        return renderer_.RenderMap(db_);
+        return map_renderer_.RenderMap(db_);
 	}
+
+    
+
+    // Вспомогательные функции обработки статистических запросов.
+    // Вызов из ProcessStatRequests:
 
     // Запрос информации об остановке
     json::Document RequestHandler::ProcessStopRequest(const json::Dict& request) const {
         json::Builder builder;
-        builder.StartDict()
-            .Key("request_id").Value(request.at("id").AsInt());
+        builder.StartDict();
 
         std::string_view stop_name = request.at("name").AsString();
         const StopBuses* stop_buses_ptr = GetBusesByStop(stop_name);
@@ -68,15 +73,16 @@ namespace transport_catalogue::output {
             builder.Key("error_message").Value("not found");
         }
 
-        builder.EndDict();
+        builder
+            .Key("request_id").Value(request.at("id").AsInt())
+            .EndDict();
         return builder.Build();
     }
 
-    // Запрос информации о маршруте
+    // Запрос информации об автобусе
     json::Document RequestHandler::ProcessBusRequest(const json::Dict& request) const {
         json::Builder builder;
-        builder.StartDict()
-            .Key("request_id").Value(request.at("id").AsInt());
+        builder.StartDict();
 
         std::string_view bus_name = request.at("name").AsString();
         std::optional<BusStat> bus_stat_opt = GetBusStat(bus_name);
@@ -91,7 +97,9 @@ namespace transport_catalogue::output {
             builder.Key("error_message").Value("not found");
         }
 
-        builder.EndDict();
+        builder
+            .Key("request_id").Value(request.at("id").AsInt())
+            .EndDict();
         return builder.Build();
     }
 
@@ -109,6 +117,57 @@ namespace transport_catalogue::output {
         builder.Key("map").Value(string_stream.str());
         
         builder.EndDict();
+        return builder.Build();
+    }
+
+    // Запрос формирования маршрута
+    json::Document RequestHandler::ProcessRouteRequest(const json::Dict& request) const {
+        json::Builder builder;
+        builder.StartDict();
+
+        int request_id = request.at("id").AsInt();
+
+        std::string_view from = request.at("from").AsString();
+        std::string_view to = request.at("to").AsString();
+        
+        auto info_opt = transport_router_.FindOptimalRoute(db_, from, to);
+
+        if (info_opt.has_value()) {
+            const routing::OptimalRouteInfo& info = info_opt.value();
+
+            builder.Key("items").StartArray();
+            for (const routing::RouteAction& route_action : info.actions) {
+                
+                if (std::holds_alternative<routing::WaitAction>(route_action)) {
+                    const routing::WaitAction& wait_action = std::get<routing::WaitAction>(route_action);
+                    builder
+                        .StartDict()
+                        .Key("stop_name").Value(std::string(wait_action.stop_id))
+                        .Key("time").Value(wait_action.time)
+                        .Key("type").Value("Wait")
+                        .EndDict();
+                } else if (std::holds_alternative<routing::BusAction>(route_action)) {
+                    const routing::BusAction& bus_action = std::get<routing::BusAction>(route_action);
+                    builder
+                        .StartDict()
+                        .Key("bus").Value(std::string(bus_action.bus_id))
+                        .Key("span_count").Value((int)bus_action.span_count)
+                        .Key("time").Value(bus_action.time)
+                        .Key("type").Value("Bus")
+                        .EndDict();
+                }
+            }
+            builder
+                .EndArray()
+                .Key("request_id").Value(request_id)
+                .Key("total_time").Value(info.total_time);    
+        } else {
+            builder
+                .Key("error_message").Value("not found")
+                .Key("request_id").Value(request_id);
+        }
+
+        builder.EndDict();        
         return builder.Build();
     }
 
