@@ -66,32 +66,39 @@ namespace routing {
     class TransportRouter {
     public:
         // Конструктор
-        explicit TransportRouter(RoutingSettings& routing_settings)
-            : routing_settings_(std::move(routing_settings)) {}
+        explicit TransportRouter(
+            const TransportCatalogue& db, const RoutingSettings& routing_settings) 
+            : db_(db)
+            , routing_settings_(std::move(routing_settings)) {
+            
+            // 0.0. Построение графа маршрутизации
+            BuildRouteGraph();
+        }
+
 
         // Поиск оптимального маршрута 
-        std::optional<OptimalRouteInfo> FindOptimalRoute(const TransportCatalogue& db, 
+        std::optional<OptimalRouteInfo> FindOptimalRoute( 
             const std::string_view from_id, const std::string_view to_id) const;
 
     private:
-        RoutingSettings routing_settings_ {};
+        const TransportCatalogue& db_;
+        const RoutingSettings routing_settings_;
 
         mutable graph::DirectedWeightedGraph<double> route_graph_;
         mutable EdgesData edges_data_;
+        
 
+        // Вспомогательные функции:
 
-        // Вспомогательные функции FindOptimalRoute:
+        // 0.0. Построение графа маршрутизации
+        void BuildRouteGraph() const;
 
-        // Построение графа маршрутизации
-        void RebuildRouteGraph(const TransportCatalogue& db) const;
-
-        // Добавление ребра графа
+        // 0.1. Добавление ребра графа
         graph::EdgeId AddRouteEdge(
             graph::VertexId from_vertex, graph::VertexId to_vertex, double time) const;
 
-        // Подготовка отчета
+        // 3.0. Подготовка отчета
         OptimalRouteInfo MakeOptimalRouteInfo(
-            //const TransportCatalogue& db,
             const graph::Router<double>::RouteInfo& route_info) const;
     };
 

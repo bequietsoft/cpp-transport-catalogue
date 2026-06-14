@@ -130,7 +130,7 @@ namespace transport_catalogue::output {
         std::string_view from = request.at("from").AsString();
         std::string_view to = request.at("to").AsString();
         
-        auto info_opt = transport_router_.FindOptimalRoute(db_, from, to);
+        auto info_opt = transport_router_.FindOptimalRoute(from, to);
 
         if (info_opt.has_value()) {
             const routing::OptimalRouteInfo& info = info_opt.value();

@@ -27,7 +27,7 @@ int main() {
         // Загрузка параметров маршрутизации
         routing::RoutingSettings routing_settings = 
             reader.GetRoutingSettings(request_data);
-        routing::TransportRouter transport_router(routing_settings);
+        routing::TransportRouter transport_router(db, routing_settings);
 
         // Загрузка параметров отрисовщика
         render::RenderSettings render_settings = 

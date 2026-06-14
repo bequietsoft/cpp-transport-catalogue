@@ -34,11 +34,6 @@ namespace graph {
         const Edge<Weight>& GetEdge(EdgeId edge_id) const;
         IncidentEdgesRange GetIncidentEdges(VertexId vertex) const;
 
-        void Clear() {
-            edges_.clear();
-            incidence_lists_.clear();
-        }
-
     private:
         std::vector<Edge<Weight>> edges_;
         std::vector<IncidenceList> incidence_lists_;

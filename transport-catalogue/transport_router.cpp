@@ -4,12 +4,11 @@ namespace routing {
 
     // Поиск оптимального маршрута 
     std::optional<OptimalRouteInfo> TransportRouter::FindOptimalRoute(
-        const TransportCatalogue& db, 
         const std::string_view from_id, const std::string_view to_id) const {
 
         // 1.0. Получаем указатели на начальную и конечную остановки
-        const StopPtr from_ptr = db.GetStop(from_id);
-        const StopPtr to_ptr   = db.GetStop(to_id);
+        const StopPtr from_ptr = db_.GetStop(from_id);
+        const StopPtr to_ptr   = db_.GetStop(to_id);
 
         // 1.1. Проверяем существование начальной и конечной остановок
         if (!from_ptr || !to_ptr) {
@@ -24,39 +23,33 @@ namespace routing {
         }
 
         // 1.3. Проверяем активность начальной и конечной остановок (через остановки ходят автобусы)
-        if (!db.IsActiveStop(from_id) || !db.IsActiveStop(to_id)) {
+        if (!db_.IsActiveStop(from_id) || !db_.IsActiveStop(to_id)) {
             return std::nullopt;
         }
 
-        // 2.0. Построение графа маршрутизации (перестроение при добавлении остановок в каталог)
-        if (route_graph_.GetVertexCount() < db.GetAllStops().size()) {
-            RebuildRouteGraph(db);
-        }
-
-        // 3.0. Поиск кратчайшего пути
+        // 2.0. Поиск кратчайшего пути
         graph::Router<double> router(route_graph_);
-        auto build_route_opt = router.BuildRoute(db.GetStopIndex(from_ptr), db.GetStopIndex(to_ptr));
+        auto build_route_opt = router.BuildRoute(db_.GetStopIndex(from_ptr), db_.GetStopIndex(to_ptr));
         if (!build_route_opt) {
             return std::nullopt;
         }
 
-        // 4.0. Подготовка отчета
+        // 3.0. Подготовка отчета
         return std::move(MakeOptimalRouteInfo(build_route_opt.value()));
     }
 
 
-    // Вспомогательные функции FindOptimalRoute:
+    // Вспомогательные функции:
 
-    // 2.0. Построение графа маршрутизации
-    void TransportRouter::RebuildRouteGraph(const TransportCatalogue& db) const {
+    // 0.0. Построение графа маршрутизации
+    void TransportRouter::BuildRouteGraph() const {
         assert(routing_settings_.bus_velocity != 0);
 
-        if (route_graph_.GetVertexCount() > 0) {
-            route_graph_.Clear();
-        }
+        const double METERS_IN_KM = 1000.0;
+        const double MINUTES_IN_HOUR = 60.0;
 
-        route_graph_ = graph::DirectedWeightedGraph<double>(db.GetAllStops().size());
-        for (const Bus& bus : db.GetAllBuses()) {
+        route_graph_ = graph::DirectedWeightedGraph<double>(db_.GetAllStops().size());
+        for (const Bus& bus : db_.GetAllBuses()) {
             
             // В маршруте автобуса должно быть как минимум 2 остановки 
             if (bus.route.size() < 2) continue;
@@ -69,12 +62,12 @@ namespace routing {
                 for (size_t j = i + 1; j < bus.route.size(); ++j) {
                     StopPtr to_ptr = bus.route[j];
 
-                    accumulate_distance += db.GetDistance(prev_ptr, to_ptr) / 1000;   // расстояние в километрах
+                    accumulate_distance += db_.GetDistance(prev_ptr, to_ptr) / METERS_IN_KM;   // расстояние в километрах
                     
                     graph::EdgeId edge_id = AddRouteEdge(
-                        db.GetStopIndex(from_ptr), 
-                        db.GetStopIndex(to_ptr), 
-                        60.0 * accumulate_distance / routing_settings_.bus_velocity); // время в минутах
+                        db_.GetStopIndex(from_ptr), 
+                        db_.GetStopIndex(to_ptr), 
+                        MINUTES_IN_HOUR * accumulate_distance / routing_settings_.bus_velocity); // время в минутах
                         
                     // архивация данных ребра
                     EdgeInfo info;
@@ -89,7 +82,7 @@ namespace routing {
         }    
     }
 
-    // 2.1. Добавление ребра графа
+    // 0.1. Добавление ребра графа
     graph::EdgeId TransportRouter::AddRouteEdge(
         graph::VertexId from_vertex, graph::VertexId to_vertex, double time) const {
 
@@ -101,12 +94,12 @@ namespace routing {
         return route_graph_.AddEdge(std::move(edge));
     }
 
-    // 4.0. Подготовка отчёта
+    // 3.0. Подготовка отчёта
     OptimalRouteInfo TransportRouter::MakeOptimalRouteInfo(
         const graph::Router<double>::RouteInfo& route_info) const {
 
         OptimalRouteInfo info;
-        info.total_time = route_info.weight;
+            info.total_time = route_info.weight;
 
         for (const graph::EdgeId edge_id : route_info.edges) {
         
